@@ -19,6 +19,10 @@ Teacher says make a bool per item that can be clicked on; I think they should be
 https://upload.wikimedia.org/wikipedia/commons/0/09/Tux%2C_gray%EF%BC%8Fgrey_background.png 
 https://github.com/tmarrinan/os-fileexplorer/blob/main/resrc/OpenSans-Regular.ttf 
 https://wiki.libsdl.org/SDL_Event 
+
+sudo apt-get install libsdl2-2.0-0 libsdl2-dev
+sudo apt-get install libsdl2-image-2.0-0 libsdl2-image-dev
+sudo apt-get install libsdl2-ttf-2.0-0 libsdl2-ttf-dev
 */
 
 typedef struct AppData {

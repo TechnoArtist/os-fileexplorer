@@ -19,12 +19,12 @@ mkdirs:= $(shell mkdir -p $(OBJDIR) $(BINDIR))
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-    $(CXX) $(CXXFLAGS) -o $@ $^ $(LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIB)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-    $(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDE)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDE)
 
 
 # REMOVE OLD FILES
 clean:
-    rm -f $(OBJS) $(EXEC)
+	rm -f $(OBJS) $(EXEC)
