@@ -23,6 +23,14 @@ https://wiki.libsdl.org/SDL_Event
 sudo apt-get install libsdl2-2.0-0 libsdl2-dev
 sudo apt-get install libsdl2-image-2.0-0 libsdl2-image-dev
 sudo apt-get install libsdl2-ttf-2.0-0 libsdl2-ttf-dev
+
+new dir
+	destroy old text (names), don't need 'em anymore
+	load new text
+	don't need to recreate while scrolling / interacting with nondirs / etc
+
+If top level recursive viewing is crashing, 
+	speed up a tad by only rendering those in view (not all across scroll bar) and rechecking on scroll
 */
 
 typedef struct AppData {
