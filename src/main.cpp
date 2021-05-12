@@ -32,15 +32,44 @@ new dir
 If top level recursive viewing is crashing, 
 	speed up a tad by only rendering those in view (not all across scroll bar) and rechecking on scroll
 */
+/* TODO main list
+
+- Sheila next task: figure out how to render multiple ScreenObjects, and make the whole object clickable
+
+- Replace individual/specific sprites and texture with the vector list
+- Set up loops for loading X files (as fits on page, remember rows)
+- Add the page up/down buttons
+- Add a function per filetype to handle clicks
+
+Note: List-view rather than grid-view, include file size & permissions on side
+
+*/
+
+enum filetype{directory, executable, image, video, codefile, other};
+
+const int WIDTH = 100; 
+const int ICON_HEIGHT = 100; 
+const int TEXT_HEIGHT = 10; 
+
+typedef struct ScreenObject {
+	filetype type; 
+	std::string filename; 
+	SDL_Rect iconRect {0, 0, WIDTH, ICON_HEIGHT}; 
+	SDL_Rect textRect {0, 0, WIDTH, TEXT_HEIGHT}; 
+	SDL_Texture* iconTexture; 
+	SDL_Texture* textTexture; 
+	int size; 
+	std::string permissions; 
+}
 
 typedef struct AppData {
 	SDL_Font *font; 
-    vector<ScreenFile> files; 
-    
+    vector<ScreenObject> files; 
+    /* To be deleted
 	SDL_Texture *specific_texture; 
 	SDL_Texture *text_example; 
 	SDL_Rect penguin_location; 
-	SDL_Rect phrase_location; 
+	SDL_Rect phrase_location; */
 } AppData; 
 
 void initialize(SDL_Renderer *renderer, AppData* data);
