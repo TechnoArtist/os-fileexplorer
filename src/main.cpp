@@ -29,19 +29,27 @@ If top level recursive viewing is crashing,
 
 #include <iostream>
 #include <SDL.h>
+#include <string>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <vector>
+#include <algorithm>
 #include <SDL_image.h>
-#include <SDL_ttf.h> 
+#include <SDL_ttf.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 
 #define WIDTH 800
 #define HEIGHT 600
 
-#define BUFFER_HEIGHT = 5; 
-#define ROW_HEIGHT = 20; // can fit 35 items per page
-#define COL_WIDTH_ICON = ROW_HEIGHT; // up to 20
-#define COL_WIDTH_NAME = 280; // up to 300
-#define COL_WIDTH_SIZE = 100; // up to 400
-#define COL_WIDTH_PERM = 100; // up to 500
-#define PAGINATION_BUTTON_WIDTH = 100; // up to 600
+#define BUFFER_HEIGHT 5 
+#define ROW_HEIGHT 20 // can fit 35 items per page
+#define COL_WIDTH_ICON 20 // up to 20
+#define COL_WIDTH_NAME 280 // up to 300
+#define COL_WIDTH_SIZE 100 // up to 400
+#define COL_WIDTH_PERM 100 // up to 500
+#define PAGINATION_BUTTON_WIDTH 100 // up to 600
 
 /* TODO main list
 
@@ -71,8 +79,8 @@ typedef struct ScreenObject {
 } ScreenObject; 
 
 typedef struct AppData {
-	SDL_Font *font; 
-    vector<ScreenObject> files; 
+	TTF_Font *font; 
+    std::vector<ScreenObject> files; 
 	// TODO update current_page_start somewhere (on pagination button click?)
 	int current_page_start = 0; 
 	int page_size = 35; 
@@ -126,8 +134,8 @@ int main(int argc, char **argv)
 				if (event.button.x < WIDTH - PAGINATION_BUTTON_WIDTH) {
 					// WARNING This assumes integer math drops the remainder
 					int file_index = event.button.y / (ROW_HEIGHT + BUFFER_HEIGHT); 
-					ScreenObject file = data->files->get(file_index); 
-					switch (file->type) {
+					ScreenObject file = data.files[file_index]; 
+					switch (file.type) {
 						case directory: 
 							openDirectory(file); 
 							break; 
@@ -156,7 +164,7 @@ int main(int argc, char **argv)
 
 	// clean up
 	// TODO loop-destroy the textures
-	SDL_DestroyTexture(data.specific_texture); 
+	//SDL_DestroyTexture(data.specific_texture); 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit(); 
@@ -178,8 +186,8 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 	
 	// Load icons
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		switch (file->type) {
+		ScreenObject file = data->files[i]; 
+		switch (file.type) {
 			// directory, executable, image, video, codefile, other
 			case directory: 
 				surf = IMG_Load("resrc/images/directory.png"); 
@@ -200,31 +208,35 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 				surf = IMG_Load("resrc/images/other.png"); 
 				break; 
 		}
-		file->icon_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		file.icon_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// Load filenames
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->filename, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		ScreenObject file = data->files[i]; 
+		char* filenameChar = const_cast<char*>(file.filename.c_str());
+		surf = TTF_RenderText_Solid(data->font, filenameChar, text_color); 
+		file.text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// Load file sizes
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->data_size, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		ScreenObject file = data->files[i]; 
+		std::string filesizeString = std::to_string(file.data_size);
+		char* filesizeChar = const_cast<char*>(filesizeString.c_str());
+		surf = TTF_RenderText_Solid(data->font, filesizeChar, text_color); 
+		file.text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// Load file permissions
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->permissions, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		ScreenObject file = data->files[i]; 
+		char* permissionsChar = const_cast<char*>(file.permissions.c_str());
+		surf = TTF_RenderText_Solid(data->font, permissionsChar, text_color); 
+		file.text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
@@ -250,11 +262,13 @@ void render(SDL_Renderer *renderer, AppData* data)
 	// --- How to sprite and text ---
 	// 1. Download image, save in resrc/images/[filename]
 	// Look in properties to learn exact image size if needed (calculator to scale)
+/*
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
 		SDL_RenderCopy(renderer, file->icon_texture, NULL, &(file->icon_rect)); 
 		SDL_QueryTexture(file->text_texture, NULL, NULL, &(width_returned), &(height_returned)); 
 		SDL_RenderPresent(renderer, file->text_texture, NULL, &(file->text_rect)); 
 	}
+	*/
 	
 	// show rendered frame
 	SDL_RenderPresent(renderer);
