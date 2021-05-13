@@ -1,13 +1,7 @@
-#include <iostream>
-#include <SDL.h>
-#include <SDL_image.h>
-#include <SDL_ttf.h> 
 
-#define WIDTH 800
-#define HEIGHT 600
-
-// TODO warning: Images are using relative paths, *must* run program from main folder not bin. 
 /* Suggestions / notes
+
+WARNING Images are using relative paths, *must* run program from main folder not bin. 
 
 Convert spaces to tabs (including makefile)
 Use first icon in assignment doc list, if a file has multiple types. 
@@ -32,14 +26,32 @@ new dir
 If top level recursive viewing is crashing, 
 	speed up a tad by only rendering those in view (not all across scroll bar) and rechecking on scroll
 */
+
+#include <iostream>
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_ttf.h> 
+
+#define WIDTH 800
+#define HEIGHT 600
+
+#define BUFFER_HEIGHT = 5; 
+#define ROW_HEIGHT = 20; // can fit 35 items per page
+#define COL_WIDTH_ICON = ROW_HEIGHT; // up to 20
+#define COL_WIDTH_NAME = 280; // up to 300
+#define COL_WIDTH_SIZE = 100; // up to 400
+#define COL_WIDTH_PERM = 100; // up to 500
+#define PAGINATION_BUTTON_WIDTH = 100; // up to 600
+
 /* TODO main list
 
 - Sheila next task: figure out how to render multiple ScreenObjects, and make the whole object clickable
 
-- Replace individual/specific sprites and texture with the vector list
-- Set up loops for loading X files (as fits on page, remember rows)
-- Add the page up/down buttons
+- Add the page up/down buttons, and make them change data->current_page_start
 - Add a function per filetype to handle clicks
+- Add icon images to ./resrc
+- Add a location-setting loop to initialize() or render()
+- Question: Does initialize() need to be re-called when the page is changed? 
 
 Note: List-view rather than grid-view, include file size & permissions on side
 
@@ -47,33 +59,35 @@ Note: List-view rather than grid-view, include file size & permissions on side
 
 enum filetype{directory, executable, image, video, codefile, other};
 
-const int WIDTH = 100; 
-const int ICON_HEIGHT = 100; 
-const int TEXT_HEIGHT = 10; 
-
 typedef struct ScreenObject {
 	filetype type; 
 	std::string filename; 
-	SDL_Rect iconRect {0, 0, WIDTH, ICON_HEIGHT}; 
-	SDL_Rect textRect {0, 0, WIDTH, TEXT_HEIGHT}; 
-	SDL_Texture* iconTexture; 
-	SDL_Texture* textTexture; 
-	int size; 
+	SDL_Rect icon_rect {0, 0, COL_WIDTH_ICON, ROW_HEIGHT}; 
+	SDL_Rect text_rect {0, 0, COL_WIDTH_NAME, ROW_HEIGHT}; 
+	SDL_Texture* icon_texture; 
+	SDL_Texture* text_texture; 
+	int data_size; 
 	std::string permissions; 
-}
+} ScreenObject; 
 
 typedef struct AppData {
 	SDL_Font *font; 
     vector<ScreenObject> files; 
-    /* To be deleted
-	SDL_Texture *specific_texture; 
-	SDL_Texture *text_example; 
-	SDL_Rect penguin_location; 
-	SDL_Rect phrase_location; */
+	// TODO update current_page_start somewhere (on pagination button click?)
+	int current_page_start = 0; 
+	int page_size = 35; 
 } AppData; 
 
 void initialize(SDL_Renderer *renderer, AppData* data);
 void render(SDL_Renderer *renderer, AppData* data);
+
+// directory, executable, image, video, codefile, other
+void openDirectory(ScreenObject file); 
+void openExecutable(ScreenObject file); 
+void openImage(ScreenObject file); 
+void openVideo(ScreenObject file); 
+void openCodefile(ScreenObject file); 
+void openOther(ScreenObject file); 
 
 int main(int argc, char **argv)
 {
@@ -92,6 +106,7 @@ int main(int argc, char **argv)
 
 	// initialize and perform rendering loop
 	AppData data; 
+	// TODO initialize each of the files to go in data->files and add them
 	initialize(renderer, &data);
 	render(renderer, &data);
 	SDL_Event event;
@@ -105,22 +120,42 @@ int main(int argc, char **argv)
 				break; 
 			case SDL_MOUSEBUTTONDOWN:
 				printf("Button down\n"); 
-				// TODO finish
-				// Note: keep if-else in order of render layer (top first)
-				if (event.button.x > phrase_location.x && <= phrase_location.x + phrase_location.w) {
-					
-				}
 				break; 
 			case SDL_MOUSEBUTTONUP:
 				printf("Button up\n"); 
+				if (event.button.x < WIDTH - PAGINATION_BUTTON_WIDTH) {
+					// WARNING This assumes integer math drops the remainder
+					int file_index = event.button.y / (ROW_HEIGHT + BUFFER_HEIGHT); 
+					ScreenObject file = data->files->get(file_index); 
+					switch (file->type) {
+						case directory: 
+							openDirectory(file); 
+							break; 
+						case executable: 
+							openExecutable(file); 
+							break; 
+						case image: 
+							openImage(file); 
+							break; 
+						case video: 
+							openVideo(file); 
+							break; 
+						case codefile: 
+							openCodefile(file); 
+							break; 
+						default: 
+							openOther(file); 
+							break; 
+					}
+				}
 				break; 
-			case :
 		}
 		
 		render(renderer, &data); // loops rendering
 	}
 
 	// clean up
+	// TODO loop-destroy the textures
 	SDL_DestroyTexture(data.specific_texture); 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -135,25 +170,67 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 {
 	// set color of background when erasing frame (rgba)
 	SDL_SetRenderDrawColor(renderer, 235, 235, 235, 255);
-	
-	// Load fonts
-	data->specific_font = TTF_OpenFont("resrc/OpenSans-Regular.ttf", 18); 
-	
-	// Load sprites 
-	SDL_Surface *surf = IMG_Load("resrc/images/image.png"); 
-	data->specific_texture *texture = SDL_CreateTextureFromSurface(renderer, surf); 
-	SDL_FreeSurface(surf); 
-	penguin_location.x = 200; 
-	penguin_location.y = 100; 
-	penguin_location.w = 165; 
-	penguin_location.h = 200; 
-	
 	SDL_Color text_color = {0, 0, 0}; 
-	SDL_Surface *text_surf = TTF_RenderText_Solid(data->specific_font, "Hello World!", text_color); 
-	data->text_example *text_texture = SDL_CreateTextureFromSurface(renderer, text_surf); 
-	SDL_FreeSurface(text_surf); 
-	phrase_location.x = 10; 
-	phrase_location.y = 500; 
+	SDL_Surface *surf; 
+	
+	// Load font
+	data->font = TTF_OpenFont("resrc/OpenSans-Regular.ttf", 18); 
+	
+	// Load icons
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+		ScreenObject file = data->files->get(i); 
+		switch (file->type) {
+			// directory, executable, image, video, codefile, other
+			case directory: 
+				surf = IMG_Load("resrc/images/directory.png"); 
+				break; 
+			case executable: 
+				surf = IMG_Load("resrc/images/executable.png"); 
+				break; 
+			case image: 
+				surf = IMG_Load("resrc/images/image.png"); 
+				break; 
+			case video: 
+				surf = IMG_Load("resrc/images/video.png"); 
+				break; 
+			case codefile: 
+				surf = IMG_Load("resrc/images/codefile.png"); 
+				break; 
+			default: 
+				surf = IMG_Load("resrc/images/other.png"); 
+				break; 
+		}
+		file->icon_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		SDL_FreeSurface(surf); 
+	}
+	
+	// Load filenames
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+		ScreenObject file = data->files->get(i); 
+		surf = TTF_RenderText_Solid(data->font, file->filename, text_color); 
+		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		SDL_FreeSurface(surf); 
+	}
+	
+	// Load file sizes
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+		ScreenObject file = data->files->get(i); 
+		surf = TTF_RenderText_Solid(data->font, file->data_size, text_color); 
+		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		SDL_FreeSurface(surf); 
+	}
+	
+	// Load file permissions
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+		ScreenObject file = data->files->get(i); 
+		surf = TTF_RenderText_Solid(data->font, file->permissions, text_color); 
+		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+		SDL_FreeSurface(surf); 
+	}
+	
+	// TODO Set item locations for icon, name, size, permissions
+	// example: penguin_location.x = 200; file->icon_rect.x = 200; 
+	
 }
 
 void render(SDL_Renderer *renderer, AppData* data)
@@ -162,30 +239,50 @@ void render(SDL_Renderer *renderer, AppData* data)
 	SDL_SetRenderDrawColor(renderer, 235, 235, 235, 255);
 	SDL_RenderClear(renderer);
 	
-	// TODO: draw!
+	// draw!
 	
 	// --- How to rectangle ---
 	// coords are in pixels
-	SDL_Rect rect; // shorthand {x, y, w, h} for the values (in order)
-	rect.x = 200; // left
-	rect.y = 150; // top
-	rect.w = 300; // width
-	rect.h = 100; // height
-	SDL_SetRenderDrawColor(renderer, 182, 64, 64, 255);
+	//SDL_Rect rect {200, 150, 300, 100}; // shorthand {x, y, w, h} for the values (in order)
+	//SDL_SetRenderDrawColor(renderer, 182, 64, 64, 255);
 	//SDL_RenderFillRect(renderer, &rect); 
 	
-	// --- How to sprite ---
+	// --- How to sprite and text ---
 	// 1. Download image, save in resrc/images/[filename]
+	// Look in properties to learn exact image size if needed (calculator to scale)
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+		SDL_RenderCopy(renderer, file->icon_texture, NULL, &(file->icon_rect)); 
+		SDL_QueryTexture(file->text_texture, NULL, NULL, &(width_returned), &(height_returned)); 
+		SDL_RenderPresent(renderer, file->text_texture, NULL, &(file->text_rect)); 
+	}
 	
-	// Look in properties to get exact image size if needed (calculator to scale)
-	SDL_RenderCopy(renderer, data->specific_texture, NULL, &(data->penguin_location); 
-	
-	// --- How to text ---
-	SDL_QueryTexture(data->text_example, NULL, NULL, &(width_returned), &(height_returned)); 
-	SDL_RenderPresent(renderer, data->text_example, NULL, &(data->phrase_location); 
-	
-
 	// show rendered frame
 	SDL_RenderPresent(renderer);
 }
+
+
+
+void openDirectory(ScreenObject file) {
+	// TODO method stub
+}
+
+void openExecutable(ScreenObject file) {
+	// TODO method stub
+}
+void openImage(ScreenObject file) {
+	// TODO method stub
+}
+
+void openVideo(ScreenObject file) {
+	// TODO method stub
+}
+
+void openCodefile(ScreenObject file) {
+	// TODO method stub
+}
+
+void openOther(ScreenObject file) {
+	// TODO method stub
+}
+
 
