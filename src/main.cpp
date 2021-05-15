@@ -31,25 +31,28 @@ If top level recursive viewing is crashing,
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h> 
+#include <iostream>
+#include <string>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <vector> 
+#include <algorithm>
 
 #define WIDTH 800
 #define HEIGHT 600
 
-#define BUFFER_HEIGHT = 5; 
-#define ROW_HEIGHT = 20; // can fit 35 items per page
-#define COL_WIDTH_ICON = ROW_HEIGHT; // up to 20
-#define COL_WIDTH_NAME = 280; // up to 300
-#define COL_WIDTH_SIZE = 100; // up to 400
-#define COL_WIDTH_PERM = 100; // up to 500
-#define PAGINATION_BUTTON_WIDTH = 100; // up to 600
+#define BUFFER_HEIGHT 5
+#define ROW_HEIGHT 20 // can fit 35 items per page
+#define COL_WIDTH_ICON ROW_HEIGHT // up to 20
+#define COL_WIDTH_NAME 280 // up to 300
+#define COL_WIDTH_SIZE 100 // up to 400
+#define COL_WIDTH_PERM 100 // up to 500
+#define PAGINATION_BUTTON_WIDTH 80 // up to 580
 
 /* TODO main list
 
-- Sheila next task: figure out how to render multiple ScreenObjects, and make the whole object clickable
-
 - Add the page up/down buttons, and make them change data->current_page_start
 - Add a function per filetype to handle clicks
-- Add icon images to ./resrc
 - Add a location-setting loop to initialize() or render()
 - Question: Does initialize() need to be re-called when the page is changed? 
 
@@ -63,31 +66,35 @@ typedef struct ScreenObject {
 	filetype type; 
 	std::string filename; 
 	SDL_Rect icon_rect {0, 0, COL_WIDTH_ICON, ROW_HEIGHT}; 
-	SDL_Rect text_rect {0, 0, COL_WIDTH_NAME, ROW_HEIGHT}; 
+	SDL_Rect name_rect {0, 0, COL_WIDTH_NAME, ROW_HEIGHT}; 
+	SDL_Rect size_rect {0, 0, COL_WIDTH_SIZE, ROW_HEIGHT}; 
+	SDL_Rect perm_rect {0, 0, COL_WIDTH_PERM, ROW_HEIGHT}; 
 	SDL_Texture* icon_texture; 
-	SDL_Texture* text_texture; 
+	SDL_Texture* name_texture; 
+	SDL_Texture* size_texture; 
+	SDL_Texture* perm_texture; 
 	int data_size; 
 	std::string permissions; 
 } ScreenObject; 
 
 typedef struct AppData {
-	SDL_Font *font; 
-    vector<ScreenObject> files; 
+	TTF_Font *font; 
+    std::vector<ScreenObject*> files; 
 	// TODO update current_page_start somewhere (on pagination button click?)
 	int current_page_start = 0; 
-	int page_size = 35; 
+	int page_size = 20; 
 } AppData; 
 
 void initialize(SDL_Renderer *renderer, AppData* data);
 void render(SDL_Renderer *renderer, AppData* data);
 
 // directory, executable, image, video, codefile, other
-void openDirectory(ScreenObject file); 
-void openExecutable(ScreenObject file); 
-void openImage(ScreenObject file); 
-void openVideo(ScreenObject file); 
-void openCodefile(ScreenObject file); 
-void openOther(ScreenObject file); 
+void openDirectory(ScreenObject* file); 
+void openExecutable(ScreenObject* file); 
+void openImage(ScreenObject* file); 
+void openVideo(ScreenObject* file); 
+void openCodefile(ScreenObject* file); 
+void openOther(ScreenObject* file); 
 
 int main(int argc, char **argv)
 {
@@ -106,7 +113,16 @@ int main(int argc, char **argv)
 
 	// initialize and perform rendering loop
 	AppData data; 
+	
 	// TODO initialize each of the files to go in data->files and add them
+	ScreenObject* file = new ScreenObject(); 
+	file->data_size = 19; 
+	file->filename = "Test"; 
+	file->permissions = "rwx"; 
+	file->type = filetype::image; 
+	
+	data.files.push_back(file); 
+	
 	initialize(renderer, &data);
 	render(renderer, &data);
 	SDL_Event event;
@@ -116,7 +132,7 @@ int main(int argc, char **argv)
 		SDL_WaitEvent(&event);
 		switch(event.type) {
 			case SDL_MOUSEMOTION:
-				printf("Mouse: %d, %d\n", event.motion.x, event.motion.y); 
+				//printf("Mouse: %d, %d\n", event.motion.x, event.motion.y); 
 				break; 
 			case SDL_MOUSEBUTTONDOWN:
 				printf("Button down\n"); 
@@ -125,27 +141,31 @@ int main(int argc, char **argv)
 				printf("Button up\n"); 
 				if (event.button.x < WIDTH - PAGINATION_BUTTON_WIDTH) {
 					// WARNING This assumes integer math drops the remainder
-					int file_index = event.button.y / (ROW_HEIGHT + BUFFER_HEIGHT); 
-					ScreenObject file = data->files->get(file_index); 
-					switch (file->type) {
-						case directory: 
-							openDirectory(file); 
-							break; 
-						case executable: 
-							openExecutable(file); 
-							break; 
-						case image: 
-							openImage(file); 
-							break; 
-						case video: 
-							openVideo(file); 
-							break; 
-						case codefile: 
-							openCodefile(file); 
-							break; 
-						default: 
-							openOther(file); 
-							break; 
+					int file_index = (event.button.y / (ROW_HEIGHT + BUFFER_HEIGHT)) + data.current_page_start; 
+					printf("Clicked on file %i\n", file_index); 
+					if (file_index < data.files.size()) {
+						printf("Index found\n"); 
+						ScreenObject* file = data.files.at(file_index); 
+						switch (file->type) {
+							case directory: 
+								openDirectory(file); 
+								break; 
+							case executable: 
+								openExecutable(file); 
+								break; 
+							case image: 
+								openImage(file); 
+								break; 
+							case video: 
+								openVideo(file); 
+								break; 
+							case codefile: 
+								openCodefile(file); 
+								break; 
+							default: 
+								openOther(file); 
+								break; 
+						}
 					}
 				}
 				break; 
@@ -156,7 +176,7 @@ int main(int argc, char **argv)
 
 	// clean up
 	// TODO loop-destroy the textures
-	SDL_DestroyTexture(data.specific_texture); 
+	//SDL_DestroyTexture(data.specific_texture); 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit(); 
@@ -174,11 +194,12 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 	SDL_Surface *surf; 
 	
 	// Load font
-	data->font = TTF_OpenFont("resrc/OpenSans-Regular.ttf", 18); 
+	data->font = TTF_OpenFont("resrc/OpenSans-Regular.ttf", ROW_HEIGHT); 
 	
+	SDL_SetRenderDrawColor(renderer, 215, 215, 235, 255);
 	// Load icons
-	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
 		switch (file->type) {
 			// directory, executable, image, video, codefile, other
 			case directory: 
@@ -194,7 +215,7 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 				surf = IMG_Load("resrc/images/video.png"); 
 				break; 
 			case codefile: 
-				surf = IMG_Load("resrc/images/codefile.png"); 
+				surf = IMG_Load("resrc/images/codefile->png"); 
 				break; 
 			default: 
 				surf = IMG_Load("resrc/images/other.png"); 
@@ -205,31 +226,44 @@ void initialize(SDL_Renderer *renderer, AppData* data)
 	}
 	
 	// Load filenames
-	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->filename, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
+		surf = TTF_RenderText_Solid(data->font, file->filename.c_str(), text_color); 
+		file->name_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// Load file sizes
-	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->data_size, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
+		surf = TTF_RenderText_Solid(data->font, std::to_string(file->data_size).c_str(), text_color); 
+		file->size_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// Load file permissions
-	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
-		ScreenObject file = data->files->get(i); 
-		surf = TTF_RenderText_Solid(data->font, file->permissions, text_color); 
-		file->text_texture = SDL_CreateTextureFromSurface(renderer, surf); 
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
+		surf = TTF_RenderText_Solid(data->font, file->permissions.c_str(), text_color); 
+		file->perm_texture = SDL_CreateTextureFromSurface(renderer, surf); 
 		SDL_FreeSurface(surf); 
 	}
 	
 	// TODO Set item locations for icon, name, size, permissions
 	// example: penguin_location.x = 200; file->icon_rect.x = 200; 
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
+		file->icon_rect.x = COL_WIDTH_ICON; 
+		file->name_rect.x = file->icon_rect.x + COL_WIDTH_NAME; 
+		file->size_rect.x = file->name_rect.x + COL_WIDTH_SIZE; 
+		file->perm_rect.x = file->size_rect.x + COL_WIDTH_PERM; 
+		
+		int y = (i - data->current_page_start) * ROW_HEIGHT + BUFFER_HEIGHT; 
+		file->icon_rect.y = y; 
+		file->name_rect.y = y; 
+		file->size_rect.y = y; 
+		file->perm_rect.y = y; 
+	}
 	
 }
 
@@ -250,10 +284,19 @@ void render(SDL_Renderer *renderer, AppData* data)
 	// --- How to sprite and text ---
 	// 1. Download image, save in resrc/images/[filename]
 	// Look in properties to learn exact image size if needed (calculator to scale)
-	for (int i = data->current_page_start; i < data->current_page_start + data->page_size; i++) {
+	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
+		ScreenObject* file = data->files.at(i); 
 		SDL_RenderCopy(renderer, file->icon_texture, NULL, &(file->icon_rect)); 
-		SDL_QueryTexture(file->text_texture, NULL, NULL, &(width_returned), &(height_returned)); 
-		SDL_RenderPresent(renderer, file->text_texture, NULL, &(file->text_rect)); 
+		SDL_QueryTexture(file->icon_texture, NULL, NULL, &(file->icon_rect.w), &(file->icon_rect.y)); 
+		
+		SDL_RenderCopy(renderer, file->name_texture, NULL, &(file->name_rect)); 
+		SDL_QueryTexture(file->name_texture, NULL, NULL, &(file->name_rect.w), &(file->name_rect.y)); 
+		
+		SDL_RenderCopy(renderer, file->size_texture, NULL, &(file->size_rect)); 
+		SDL_QueryTexture(file->size_texture, NULL, NULL, &(file->size_rect.w), &(file->size_rect.y)); 
+		
+		SDL_RenderCopy(renderer, file->perm_texture, NULL, &(file->perm_rect)); 
+		SDL_QueryTexture(file->perm_texture, NULL, NULL, &(file->perm_rect.w), &(file->perm_rect.y)); 
 	}
 	
 	// show rendered frame
@@ -262,26 +305,26 @@ void render(SDL_Renderer *renderer, AppData* data)
 
 
 
-void openDirectory(ScreenObject file) {
+void openDirectory(ScreenObject* file) {
 	// TODO method stub
 }
 
-void openExecutable(ScreenObject file) {
+void openExecutable(ScreenObject* file) {
 	// TODO method stub
 }
-void openImage(ScreenObject file) {
-	// TODO method stub
-}
-
-void openVideo(ScreenObject file) {
+void openImage(ScreenObject* file) {
 	// TODO method stub
 }
 
-void openCodefile(ScreenObject file) {
+void openVideo(ScreenObject* file) {
 	// TODO method stub
 }
 
-void openOther(ScreenObject file) {
+void openCodefile(ScreenObject* file) {
+	// TODO method stub
+}
+
+void openOther(ScreenObject* file) {
 	// TODO method stub
 }
 
