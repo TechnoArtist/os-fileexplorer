@@ -29,14 +29,16 @@ If top level recursive viewing is crashing,
 
 #include <iostream>
 #include <SDL.h>
-#include <SDL_image.h>
-#include <SDL_ttf.h> 
-#include <iostream>
 #include <string>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <vector> 
+#include <vector>
 #include <algorithm>
+#include <SDL_image.h>
+#include <SDL_ttf.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -284,6 +286,8 @@ void render(SDL_Renderer *renderer, AppData* data)
 	// --- How to sprite and text ---
 	// 1. Download image, save in resrc/images/[filename]
 	// Look in properties to learn exact image size if needed (calculator to scale)
+	
+	
 	for (int i = data->current_page_start; i < data->current_page_start + data->page_size && i < data->files.size(); i++) {
 		ScreenObject* file = data->files.at(i); 
 		SDL_RenderCopy(renderer, file->icon_texture, NULL, &(file->icon_rect)); 
@@ -298,6 +302,7 @@ void render(SDL_Renderer *renderer, AppData* data)
 		SDL_RenderCopy(renderer, file->perm_texture, NULL, &(file->perm_rect)); 
 		SDL_QueryTexture(file->perm_texture, NULL, NULL, &(file->perm_rect.w), &(file->perm_rect.y)); 
 	}
+	
 	
 	// show rendered frame
 	SDL_RenderPresent(renderer);
